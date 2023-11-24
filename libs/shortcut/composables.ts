@@ -1,7 +1,7 @@
-import { Shortcut } from "./shortcut";
+import { Shortcut, type ShortcutOptions } from "./shortcut";
 
-export function useShortcut() {
-  const shortcut = new Shortcut();
+export function useShortcut(options?: ShortcutOptions) {
+  const shortcut = new Shortcut(options);
 
   onMounted(() => {
     shortcut.activate();

@@ -1,14 +1,85 @@
-const _modifierKeys = ["CONTROL", "ALT", "SHIFT", "META"];
-const _modifierPropMap: Record<(typeof _modifierKeys)[number], keyof KeyboardEvent> = {
-  CONTROL: "ctrlKey",
-  ALT: "altKey",
-  SHIFT: "shiftKey",
-  META: "metaKey",
+import { createDefaultPlatform, type Platform } from "../platform/platform";
+
+const _modifierMap: Record<string, string> = {
+  // Control
+  CONTROL: "Control",
+  CTRL: "Control",
+  // Shift
+  SHIFT: "Shift",
+  // Alt
+  ALT: "Alt",
+  OPT: "Alt",
+  OPTION: "Alt",
+  // Meta
+  META: "Meta",
+  WIN: "Meta",
+  CMD: "Meta",
 };
 
+const _keyAliasMap: Record<string, string> = {
+  SPACE: " ",
+  SP: " ",
+  CM: "ContextMenu",
+  ESC: "Escape",
+  INS: "Insert",
+  DEL: "Delete",
+  SCRLK: "ScrollLock",
+  NUMLK: "NumLock",
+  EXEC: "Execute",
+  BS: "Backspace",
+  CAPS: "CapsLock",
+  AU: "ArrowUp",
+  AR: "ArrowRight",
+  AD: "ArrowDown",
+  AL: "ArrowLeft",
+  PU: "PageUp",
+  PD: "PageDown",
+  VU: "AudioVolumnUp",
+  VD: "AudioVolumnDown",
+  MUTE: "AudioVolumnMute",
+};
+
+const _modifierPropMap: Record<string, keyof KeyboardEvent> = {
+  Control: "ctrlKey",
+  Alt: "altKey",
+  Shift: "shiftKey",
+  Meta: "metaKey",
+};
+
+const _labelSymbolMap: Record<string, string> = {
+  Meta: "⌘",
+  Control: "⌃",
+  Alt: "⌥",
+  Shift: "⇧",
+  Enter: "↩",
+  CapsLock: "⇪",
+  " ": "␣",
+  Escape: "⎋",
+  ArrowUp: "↑",
+  ArrowRight: "→",
+  ArrowDown: "↓",
+  ArrowLeft: "←",
+  AudioVolumnUp: "🔊",
+  AudioVolumnDown: "🔉",
+  AudioVolumnMute: "🔈",
+};
+
+const _labelAliasMap: Record<string, string> = {
+  Control: "Ctrl",
+  Delete: "Del",
+  Insert: "Ins",
+  Escape: "ESC",
+  ArrowUp: "UpArrow",
+  ArrowRight: "RightArrow",
+  ArrowDown: "DownArrow",
+  ArrowLeft: "LeftArrow",
+};
+
+const _sortedModifiers = ["Control", "Meta", "Shift", "Alt"];
+
 export type KeyMap = Record<string, boolean>;
-export type KeyCommandListener = (command: KeyCommand) => void;
-export type ShortcutEventListener = (event: ShortcutEvent) => void;
+export type ShortcutDefaultEventListener = (event: ShortcutEvent) => void;
+export type ShortcutCommandListener = (event: CommandEvent) => void;
 export type KeyboardEventListener = (this: Shortcut, event: KeyboardEvent) => void;
 export type BlurEventListener = (this: Shortcut, event: Event) => void;
 export type ShortcutTarget = Window | Document | Element | undefined;
@@ -21,37 +92,85 @@ export enum ShortcutResult {
 }
 
 export class KeyCondition {
-  static parse(keyExpression: string): KeyCondition {
+  static parse(shortcut: Shortcut, keyExpression: string): KeyCondition {
     if (!keyExpression) {
       throw new Error("KeyConditionError: Invalid key expression");
     }
 
-    const combinations = keyExpression
+    const keys = keyExpression
       .toUpperCase()
       .split("+")
       .map((x) => x.trim());
     const modifierMap: KeyMap = {};
     const keyMap: KeyMap = {};
+    const hasShift = keys.includes("SHIFT");
+    const macLike = shortcut.platform.macLike;
 
-    for (const key of combinations) {
-      if (Shortcut.isModifier(key)) {
-        modifierMap[key] = true;
+    for (const k of keys) {
+      if (k === "COMMANDORCONTROL" || k === "CMDORCTRL") {
+        modifierMap[macLike ? "Meta" : "Control"] = true;
+      } else if (k in _modifierMap) {
+        modifierMap[_modifierMap[k]] = true;
+      } else if (k in _keyAliasMap) {
+        keyMap[_keyAliasMap[k]] = true;
       } else {
-        keyMap[key] = true;
+        keyMap[hasShift ? k : k.toLowerCase()] = true;
       }
     }
 
-    return new KeyCondition(modifierMap, keyMap);
+    return new KeyCondition(shortcut, modifierMap, keyMap);
   }
 
+  readonly shortcut: Shortcut;
   readonly modifierMap: KeyMap;
   readonly keyMap: KeyMap;
   readonly size: number;
+  readonly aliases: string[];
+  readonly label: string;
 
-  constructor(modifierMap: KeyMap, keyMap: KeyMap) {
+  constructor(shortcut: Shortcut, modifierMap: KeyMap, keyMap: KeyMap) {
+    this.shortcut = shortcut;
     this.modifierMap = modifierMap;
     this.keyMap = keyMap;
     this.size = Object.keys(modifierMap).length + Object.keys(keyMap).length;
+    this.aliases = this.createAliases();
+
+    if (shortcut.platform.macLike) {
+      this.label = this.aliases.join(" ");
+    } else {
+      this.label = this.aliases.join("+");
+    }
+  }
+
+  createAliases(): string[] {
+    const aliases: string[] = [];
+    const macLike = this.shortcut.platform.macLike;
+
+    if (macLike) {
+      for (const m of _sortedModifiers) {
+        if (this.modifierMap[m]) {
+          aliases.push(_labelSymbolMap[m] ?? _labelAliasMap[m] ?? m);
+        }
+      }
+
+      for (const k in this.keyMap) {
+        const key = _labelSymbolMap[k] ?? _labelAliasMap[k] ?? k;
+        aliases.push(key.length === 1 ? key.toUpperCase() : key);
+      }
+    } else {
+      for (const m of _sortedModifiers) {
+        if (this.modifierMap[m]) {
+          aliases.push(_labelAliasMap[m] ?? m);
+        }
+      }
+
+      for (const k in this.keyMap) {
+        const key = _labelAliasMap[k] ?? k;
+        aliases.push(key.length === 1 ? key.toUpperCase() : key);
+      }
+    }
+
+    return aliases;
   }
 
   matchModifiers(modifierMap: KeyMap): boolean {
@@ -98,22 +217,24 @@ export class KeyCondition {
 }
 
 export class KeyCommand {
-  static parse(command: string): KeyCondition[] {
+  static parse(shortcut: Shortcut, command: string): KeyCondition[] {
     const expressions = command.split(",");
     const conditions: KeyCondition[] = [];
 
     for (const expression of expressions) {
-      const keyCondition = KeyCondition.parse(expression);
+      const keyCondition = KeyCondition.parse(shortcut, expression);
       conditions.push(keyCondition);
     }
 
     return conditions;
   }
 
+  readonly shortcut: Shortcut;
   readonly expression: string;
-  readonly listener: KeyCommandListener;
+  readonly listener: ShortcutCommandListener;
   readonly conditions: KeyCondition[];
   readonly size: number;
+  readonly label: string;
 
   private _activeCondition: KeyCondition;
   private _conditionIndex = 0;
@@ -126,12 +247,28 @@ export class KeyCommand {
     return this._conditionIndex;
   }
 
-  constructor(expression: string, listener: KeyCommandListener) {
+  constructor(
+    shortcut: Shortcut,
+    expression: string,
+    listener: ShortcutCommandListener
+  ) {
+    this.shortcut = shortcut;
     this.expression = expression;
     this.listener = listener;
-    this.conditions = KeyCommand.parse(expression);
+    this.conditions = KeyCommand.parse(shortcut, expression);
     this.size = this.conditions.reduce((a, b) => a + b.size, 0);
     this._activeCondition = this.conditions[0];
+    this.label = this.createLabel();
+  }
+
+  createLabel(): string {
+    const exprs: string[] = [];
+
+    for (const condition of this.conditions) {
+      exprs.push(condition.label);
+    }
+
+    return exprs.join(", ");
   }
 
   next(): void {
@@ -144,30 +281,30 @@ export class KeyCommand {
     this._activeCondition = this.conditions[0];
   }
 
-  trigger(): void {
-    this.listener(this);
+  trigger(event: KeyboardEvent): void {
+    this.listener(new CommandEvent(this, event));
   }
 
-  match(shortcut: Shortcut): ShortcutResult {
+  match(event: KeyboardEvent): ShortcutResult {
     const condition = this._activeCondition;
-    const modifierMatched = condition.matchModifiers(shortcut.activeModifierMap);
+    const modifierMatched = condition.matchModifiers(this.shortcut.activeModifierMap);
 
     if (!modifierMatched) {
       return ShortcutResult.Skip;
     }
 
-    if (condition.matchKeys(shortcut.activeKeyMap)) {
+    if (condition.matchKeys(this.shortcut.activeKeyMap)) {
       this.next();
 
       if (this._conditionIndex >= this.conditions.length) {
         this.reset();
-        this.trigger();
+        this.trigger(event);
         return ShortcutResult.Trigger;
       }
 
-      shortcut.activeKeyMap = {};
+      this.shortcut.activeKeyMap = {};
       return ShortcutResult.Next;
-    } else if (condition.containsKey(shortcut.activeKeyMap)) {
+    } else if (condition.containsKey(this.shortcut.activeKeyMap)) {
       return ShortcutResult.Wait;
     }
 
@@ -178,6 +315,7 @@ export class KeyCommand {
 }
 
 export interface ShortcutOptions {
+  platform?: Partial<Platform>;
   target?: Window | Document | Element;
 }
 
@@ -195,25 +333,36 @@ export class ShortcutEvent {
   }
 }
 
+export class CommandEvent extends ShortcutEvent {
+  readonly command: KeyCommand;
+
+  constructor(command: KeyCommand, originalEvent: KeyboardEvent) {
+    super(command.shortcut, originalEvent);
+    this.command = command;
+  }
+}
+
 export class Shortcut {
   static isModifier(key: string): boolean {
-    return _modifierKeys.includes(key.toUpperCase());
+    return key.toUpperCase() in _modifierMap;
   }
 
   static isKey(key: string): boolean {
-    return !_modifierKeys.includes(key.toUpperCase());
+    return !(key.toUpperCase() in _modifierMap);
   }
+
+  readonly platform: Platform;
 
   target: ShortcutTarget;
   commands: KeyCommand[] = [];
-  defaultListeners: ShortcutEventListener[] = [];
+  defaultListeners: ShortcutDefaultEventListener[] = [];
   activeModifierMap: KeyMap = {};
   activeKeyMap: KeyMap = {};
   pressedModifierMap: KeyMap = {};
   pressedKeyMap: KeyMap = {};
 
-  private _result = ShortcutResult.Skip;
-  private _lastResult = ShortcutResult.Skip;
+  private _result: ShortcutResult = ShortcutResult.Skip;
+  private _lastResult: ShortcutResult = ShortcutResult.Skip;
   private _keyDownListener: KeyboardEventListener;
   private _keyUpListener: KeyboardEventListener;
   private _blurListener: BlurEventListener;
@@ -228,7 +377,9 @@ export class Shortcut {
 
   constructor(options?: ShortcutOptions) {
     options ??= {};
-    this.target ??= typeof window === "undefined" ? undefined : window;
+    this.platform ??= createDefaultPlatform(options.platform);
+    this.target ??=
+      options.target ?? typeof window === "undefined" ? undefined : window;
     this._keyDownListener = this._onKeyDown.bind(this);
     this._keyUpListener = this._onKeyUp.bind(this);
     this._blurListener = this._onBlur.bind(this);
@@ -259,11 +410,11 @@ export class Shortcut {
     }
   }
 
-  on(listener: ShortcutEventListener): this;
-  on(expression: string, listener: KeyCommandListener): this;
+  on(listener: ShortcutDefaultEventListener): this;
+  on(expression: string, listener: ShortcutCommandListener): this;
   on(...args: any[]): this {
     if (args.length === 2) {
-      const command = new KeyCommand(args[0], args[1]);
+      const command = new KeyCommand(this, args[0], args[1]);
       this.commands.push(command);
       this.commands.sort((a, b) => b.size - a.size);
     } else {
@@ -293,6 +444,11 @@ export class Shortcut {
     return !!keys.length && !keys.every((x) => !x);
   }
 
+  private _initResult(): void {
+    this._lastResult = this._result;
+    this._result = ShortcutResult.Skip;
+  }
+
   private _updateModifier(event: KeyboardEvent): void {
     for (const modKey in _modifierPropMap) {
       const pressed = event[_modifierPropMap[modKey]] as boolean;
@@ -307,32 +463,23 @@ export class Shortcut {
     }
   }
 
-  private _onKeyDown(event: KeyboardEvent): void {
-    if (event.repeat) {
-      return;
+  private _isAlreadyPressedKeyCode(keyCode: string): boolean {
+    return this.pressedKeyMap[keyCode];
+  }
+
+  private _updateKey(event: KeyboardEvent): void {
+    if (event.type === "keydown") {
+      this.pressedKeyMap[event.code] = true;
+      this.activeKeyMap[event.key] = true;
+    } else {
+      delete this.pressedKeyMap[event.code];
+      delete this.activeKeyMap[event.key];
     }
+  }
 
-    this._updateModifier(event);
-
-    const key = event.key.toUpperCase();
-    this._lastResult = this._result;
-    this._result = ShortcutResult.Skip;
-
-    if (Shortcut.isModifier(key)) {
-      this.activeKeyMap = {};
-      this._result = ShortcutResult.Skip;
-      return;
-    }
-
-    if (this.pressedKeyMap[key]) {
-      return;
-    }
-
-    this.pressedKeyMap[key] = true;
-    this.activeKeyMap[key] = true;
-
+  private _match(event: KeyboardEvent): void {
     for (const command of this.commands) {
-      this._result = command.match(this);
+      this._result = command.match(event);
 
       if (this._result !== ShortcutResult.Skip) {
         event.preventDefault();
@@ -351,25 +498,36 @@ export class Shortcut {
     }
   }
 
+  private _onKeyDown(event: KeyboardEvent): void {
+    event.preventDefault();
+    if (event.repeat) {
+      return;
+    }
+
+    this._initResult();
+
+    if (Shortcut.isModifier(event.key)) {
+      this._updateModifier(event);
+      return;
+    }
+
+    if (this._isAlreadyPressedKeyCode(event.code)) {
+      return;
+    }
+
+    this._updateKey(event);
+    this._match(event);
+  }
+
+  private _onKeyUp(event: KeyboardEvent): void {
+    this._updateModifier(event);
+    this._updateKey(event);
+  }
+
   private _onBlur(event: Event) {
     this.pressedModifierMap = {};
     this.pressedKeyMap = {};
     this.activeModifierMap = {};
     this.activeKeyMap = {};
-  }
-
-  private _onKeyUp(event: KeyboardEvent): void {
-    const key = event.key.toUpperCase();
-
-    this._updateModifier(event);
-
-    if (Shortcut.isModifier(key)) {
-      delete this.pressedModifierMap[key];
-      delete this.activeModifierMap[key];
-      this.activeKeyMap = {};
-    } else {
-      delete this.pressedKeyMap[key];
-      delete this.activeKeyMap[key];
-    }
   }
 }

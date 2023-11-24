@@ -8,18 +8,16 @@ import { useShortcut } from "~/libs/shortcut/composables";
 const shortcut = useShortcut();
 const message = ref("Waiting for input");
 
-shortcut.on("Control+K, Control+L", () => {
-  message.value = "hi";
+shortcut.on("Control+K, Control+L", (event) => {
+  message.value = event.command.label;
 });
-shortcut.on("Control+S", () => {
-  message.value = "Save";
+shortcut.on("CmdOrCtrl+S", (event) => {
+  message.value = event.command.label;
 });
-shortcut.on("Control+C", () => {
-  message.value = "Copy";
+shortcut.on("Control+C", (event) => {
+  message.value = event.command.label;
 });
 shortcut.on((event) => {
-  console.log(event);
-
   if (event.result === "wait") {
     message.value = "Waiting for key of chord";
     event.originalEvent.preventDefault();
