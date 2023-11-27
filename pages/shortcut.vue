@@ -3,21 +3,26 @@
 </template>
 
 <script setup lang="ts">
-import { useShortcut } from "~/libs/shortcut/composables";
+import { onCommand } from "~/libs/shortcut/composables";
 
-const shortcut = useShortcut();
 const message = ref("Waiting for input");
 
-shortcut.on("Control+K, Control+L", (event) => {
-  message.value = event.command.label;
+onCommand("coc+a", (event) => {
+  message.value = "Select All";
 });
-shortcut.on("CmdOrCtrl+S", (event) => {
-  message.value = event.command.label;
+onCommand("coc+s", (event) => {
+  message.value = "Save";
 });
-shortcut.on("Control+C", (event) => {
-  message.value = event.command.label;
+onCommand("coc+shift+s", (event) => {
+  message.value = "Save As";
 });
-shortcut.on((event) => {
+onCommand("coc+c", (event) => {
+  message.value = "Copy";
+});
+onCommand("coc+v", (event) => {
+  message.value = "Paste";
+});
+onCommand((event) => {
   if (event.result === "wait") {
     message.value = "Waiting for key of chord";
     event.originalEvent.preventDefault();
