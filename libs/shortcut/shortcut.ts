@@ -53,7 +53,6 @@ const _labelSymbolMap: Record<string, string> = {
   Shift: "⇧",
   Enter: "↩",
   CapsLock: "⇪",
-  " ": "␣",
   Escape: "⎋",
   ArrowUp: "↑",
   ArrowRight: "→",
@@ -62,6 +61,7 @@ const _labelSymbolMap: Record<string, string> = {
   AudioVolumnUp: "🔊",
   AudioVolumnDown: "🔉",
   AudioVolumnMute: "🔈",
+  " ": "␣",
 };
 
 const _labelAliasMap: Record<string, string> = {
@@ -73,6 +73,7 @@ const _labelAliasMap: Record<string, string> = {
   ArrowRight: "RightArrow",
   ArrowDown: "DownArrow",
   ArrowLeft: "LeftArrow",
+  " ": "Space",
 };
 
 const _presetMap: Record<string, string> = {
