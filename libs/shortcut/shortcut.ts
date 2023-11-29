@@ -85,7 +85,7 @@ const _presetMap: Record<string, string> = {
   REDO: "CmdOrCtrl+Y",
 };
 
-const _sortedModifiers = ["Control", "Meta", "Shift", "Alt"];
+const _modifiersByPriority = ["Control", "Meta", "Shift", "Alt"];
 
 for (let i = 1; i <= 32; i++) {
   _keyAliasMap[`F${i}`] = `F${i}`;
@@ -164,7 +164,7 @@ export class KeyCondition {
     const macLike = this.shortcut.platform.macLike;
 
     if (macLike) {
-      for (const m of _sortedModifiers) {
+      for (const m of _modifiersByPriority) {
         if (this.modifierMap[m]) {
           aliases.push(_labelSymbolMap[m] ?? _labelAliasMap[m] ?? m);
         }
@@ -175,7 +175,7 @@ export class KeyCondition {
         aliases.push(key.length === 1 ? key.toUpperCase() : key);
       }
     } else {
-      for (const m of _sortedModifiers) {
+      for (const m of _modifiersByPriority) {
         if (this.modifierMap[m]) {
           aliases.push(_labelAliasMap[m] ?? m);
         }
